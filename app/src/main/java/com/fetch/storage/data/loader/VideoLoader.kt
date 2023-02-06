@@ -1,13 +1,18 @@
 package com.fetch.storage.data.loader
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.database.Cursor
 import android.media.MediaScannerConnection
+import android.net.Uri
+import android.os.Build
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
 import android.util.Log
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import com.fetch.storage.data.loader.model.FolderItem
@@ -15,14 +20,13 @@ import com.fetch.storage.data.loader.model.MediaItem
 import java.util.concurrent.Executors
 
 class VideoLoader : LifecycleOwner {
-
-
     /* load your media */
-    fun loadDeviceVideos(context: Context, fetchByOrder: String, videoLoadListener: VideoLoadListener) {
-        Executors.newSingleThreadExecutor().execute(VideoLoadRunnable(context, fetchByOrder, videoLoadListener))
+    fun loadDeviceVideos(context: Context, fetchData: String, fetchByOrder: String, videoLoadListener: VideoLoadListener) {
+        Executors.newSingleThreadExecutor().execute(VideoLoadRunnable(context, fetchData, fetchByOrder, videoLoadListener))
     }
 
-    inner class VideoLoadRunnable(private val mContext: Context, private val mFetchByOrder: String, private val mListener: VideoLoadListener) : Runnable {
+    inner class VideoLoadRunnable(private val mContext: Context, private val mFetchData: String, private val mFetchByOrder: String, private val mListener: VideoLoadListener) :
+        Runnable {
         private val handler = Handler(Looper.getMainLooper())
         private val projection = arrayOf("_id", "_data", "title", "_size", "date_modified", "datetaken", "duration", "resolution", "bucket_display_name")
         private var mVideoList: ArrayList<MediaItem> = ArrayList()
@@ -30,31 +34,48 @@ class VideoLoader : LifecycleOwner {
         override fun run() {
             mListener.onVideoLoadStart()
 
+            if (!permissionAlreadyGranted(mContext)) {
+                mListener.onFailed("Permission not granted!")
+                return
+            }
+
             try {
                 scanFile(mContext, Environment.getExternalStorageDirectory().absolutePath)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+
+            val uri: Uri = when (mFetchData) {
+                "audio" -> {
+                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+                }
+                "image" -> {
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                }
+                else -> {
+                    MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                }
+            }
+
             var query: Cursor? = null
             when (mFetchByOrder) {
                 "DateNewToOld" -> {
-                    query = mContext.contentResolver.query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, projection, null, null, "date_modified ASC")!!
+                    query = mContext.contentResolver.query(uri, projection, null, null, "date_modified ASC")!!
                 }
                 "DateOldToNew" -> {
-                    query =
-                        mContext.contentResolver.query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, projection, null, null, "date_modified DESC")!!
+                    query = mContext.contentResolver.query(uri, projection, null, null, "date_modified DESC")!!
                 }
                 "NameAToZ" -> {
-                    query = mContext.contentResolver.query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, projection, null, null, "title DESC")!!
+                    query = mContext.contentResolver.query(uri, projection, null, null, "title DESC")!!
                 }
                 "NameZToA" -> {
-                    query = mContext.contentResolver.query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, projection, null, null, "title ASC")!!
+                    query = mContext.contentResolver.query(uri, projection, null, null, "title ASC")!!
                 }
                 "SizeHighToLow" -> {
-                    query = mContext.contentResolver.query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, projection, null, null, "_size ASC")!!
+                    query = mContext.contentResolver.query(uri, projection, null, null, "_size ASC")!!
                 }
                 "SizeLowToHigh" -> {
-                    query = mContext.contentResolver.query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, projection, null, null, "_size DESC")!!
+                    query = mContext.contentResolver.query(uri, projection, null, null, "_size DESC")!!
                 }
             }
             if (query == null) {
@@ -117,15 +138,17 @@ class VideoLoader : LifecycleOwner {
 
     /* sort your media */
     fun sortLoadedVideo(
-        context: Context, videoList: ArrayList<MediaItem>, folderList: ArrayList<FolderItem>, fetchByOrder: String,
-        videoLoadListener: VideoLoadListener
+        context: Context, videoList: ArrayList<MediaItem>, folderList: ArrayList<FolderItem>, fetchByOrder: String, videoLoadListener: VideoLoadListener
     ) {
         Executors.newSingleThreadExecutor().execute(SortLoadedVideoRunnable(context, videoList, folderList, fetchByOrder, videoLoadListener))
     }
 
     inner class SortLoadedVideoRunnable(
-        private val mContext: Context, private var mVideoList: ArrayList<MediaItem>, private var mFolderList: ArrayList<FolderItem>,
-        private val mFetchByOrder: String, private val mListener: VideoLoadListener
+        private val mContext: Context,
+        private var mVideoList: ArrayList<MediaItem>,
+        private var mFolderList: ArrayList<FolderItem>,
+        private val mFetchByOrder: String,
+        private val mListener: VideoLoadListener
     ) : Runnable {
         private val handler = Handler(Looper.getMainLooper())
 
@@ -234,9 +257,22 @@ class VideoLoader : LifecycleOwner {
         }
         return arrayList2
     }
-    /* local member */
+
+    private fun permissionAlreadyGranted(context: Context): Boolean {
+        return if (Build.VERSION.SDK_INT >= 33) {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.READ_MEDIA_IMAGES
+            ) == PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED
+        } else {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+        }
+    }
 
     override fun getLifecycle(): Lifecycle {
-        android.util.Log.e("VideoLoader", "getLifecycle: Not yet implemented" )
+        Log.e("VideoLoader", "getLifecycle: Not yet implemented")
+        TODO("Not yet implemented")
     }
+    /* local member */
+
 }
