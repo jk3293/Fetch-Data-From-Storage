@@ -1,4 +1,4 @@
-package com.fetch.storage.data.loader.model
+package com.fetch.storage.data.model
 
 class MediaItem(
     var mediaId: String,

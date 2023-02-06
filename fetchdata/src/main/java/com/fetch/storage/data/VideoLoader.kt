@@ -1,4 +1,4 @@
-package com.fetch.storage.data.loader
+package com.fetch.storage.data
 
 import android.Manifest
 import android.content.Context
@@ -15,8 +15,8 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
-import com.fetch.storage.data.loader.model.FolderItem
-import com.fetch.storage.data.loader.model.MediaItem
+import com.fetch.storage.data.model.FolderItem
+import com.fetch.storage.data.model.MediaItem
 import java.util.concurrent.Executors
 
 class VideoLoader : LifecycleOwner {
@@ -273,6 +273,7 @@ class VideoLoader : LifecycleOwner {
         Log.e("VideoLoader", "getLifecycle: Not yet implemented")
         TODO("Not yet implemented")
     }
+
     /* local member */
 
 }
